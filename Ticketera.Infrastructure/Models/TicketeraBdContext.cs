@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Ticketera.Domain.Models.Entities;
-using Ticketera.Infrastructure;
 
 namespace Ticketera.Infrastructure.Models;
 
@@ -28,137 +27,150 @@ public partial class TicketeraBdContext : DbContext
     public virtual DbSet<UserRole> UserRoles { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=.;Database=TicketeraBD;Trusted_Connection=True;TrustServerCertificate=True;");
+    {
+        // Si el contexto no ha sido configurado externamente (por ejemplo, en las migraciones de consola),
+        // busca la cadena de conexión por defecto.
+        if (!optionsBuilder.IsConfigured)
+        {
+            optionsBuilder.UseNpgsql("Name=ConnectionStrings:DefaultConnection");
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Response>(entity =>
         {
-            entity.HasKey(e => e.ResponseId).HasName("PK__response__EBECD8965859B665");
+            entity.HasKey(e => e.ResponseId).HasName("PK_responses");
 
             entity.ToTable("responses");
 
             entity.Property(e => e.ResponseId)
                 .ValueGeneratedNever()
                 .HasColumnName("response_id");
+                
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(getdate())")
+                .HasDefaultValueSql("now()") // Adaptado a PostgreSQL
                 .HasColumnName("created_at");
+                
             entity.Property(e => e.Message)
-                .IsUnicode(false)
-                .HasColumnName("message");
+                .HasColumnName("message"); // Removido IsUnicode (PostgreSQL maneja UTF-8 de forma nativa)
+                
             entity.Property(e => e.ResponderId).HasColumnName("responder_id");
             entity.Property(e => e.TicketId).HasColumnName("ticket_id");
 
             entity.HasOne(d => d.Responder).WithMany(p => p.Responses)
                 .HasForeignKey(d => d.ResponderId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__responses__respo__4AB81AF0");
+                .HasConstraintName("FK_responses_responder");
 
             entity.HasOne(d => d.Ticket).WithMany(p => p.Responses)
                 .HasForeignKey(d => d.TicketId)
-                .HasConstraintName("FK__responses__ticke__49C3F6B7");
+                .HasConstraintName("FK_responses_tickets");
         });
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.RoleId).HasName("PK__roles__760965CCE60964E3");
+            entity.HasKey(e => e.RoleId).HasName("PK_roles");
 
             entity.ToTable("roles");
 
-            entity.HasIndex(e => e.RoleName, "UQ__roles__783254B19B6F3A19").IsUnique();
+            entity.HasIndex(e => e.RoleName, "UQ_roles_role_name").IsUnique();
 
             entity.Property(e => e.RoleId)
                 .ValueGeneratedNever()
                 .HasColumnName("role_id");
+                
             entity.Property(e => e.RoleName)
                 .HasMaxLength(50)
-                .IsUnicode(false)
                 .HasColumnName("role_name");
         });
 
         modelBuilder.Entity<Ticket>(entity =>
         {
-            entity.HasKey(e => e.TicketId).HasName("PK__tickets__D596F96B37E9BE72");
+            entity.HasKey(e => e.TicketId).HasName("PK_tickets");
 
             entity.ToTable("tickets");
 
             entity.Property(e => e.TicketId)
                 .ValueGeneratedNever()
                 .HasColumnName("ticket_id");
+                
             entity.Property(e => e.ClosedAt).HasColumnName("closed_at");
+            
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(getdate())")
+                .HasDefaultValueSql("now()") // Adaptado a PostgreSQL
                 .HasColumnName("created_at");
+                
             entity.Property(e => e.Description)
-                .IsUnicode(false)
                 .HasColumnName("description");
+                
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
-                .IsUnicode(false)
                 .HasColumnName("status");
+                
             entity.Property(e => e.Title)
                 .HasMaxLength(255)
-                .IsUnicode(false)
                 .HasColumnName("title");
+                
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
             entity.HasOne(d => d.User).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__tickets__user_id__45F365D3");
+                .HasConstraintName("FK_tickets_users");
         });
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.UserId).HasName("PK__users__B9BE370F867810DF");
+            entity.HasKey(e => e.UserId).HasName("PK_users");
 
             entity.ToTable("users");
 
-            entity.HasIndex(e => e.Email, "UQ__users__AB6E61646A67DFD0").IsUnique();
+            entity.HasIndex(e => e.Email, "UQ_users_email").IsUnique();
 
-            entity.HasIndex(e => e.Username, "UQ__users__F3DBC572EBF15A9C").IsUnique();
+            entity.HasIndex(e => e.Username, "UQ_users_username").IsUnique();
 
             entity.Property(e => e.UserId)
                 .ValueGeneratedNever()
                 .HasColumnName("user_id");
+                
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(getdate())")
+                .HasDefaultValueSql("now()") // Adaptado a PostgreSQL
                 .HasColumnName("created_at");
+                
             entity.Property(e => e.Email)
                 .HasMaxLength(150)
-                .IsUnicode(false)
                 .HasColumnName("email");
+                
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
-                .IsUnicode(false)
                 .HasColumnName("password_hash");
+                
             entity.Property(e => e.Username)
                 .HasMaxLength(100)
-                .IsUnicode(false)
                 .HasColumnName("username");
         });
 
         modelBuilder.Entity<UserRole>(entity =>
         {
-            entity.HasKey(e => new { e.UserId, e.RoleId }).HasName("PK__user_rol__6EDEA1534C66D4C9");
+            entity.HasKey(e => new { e.UserId, e.RoleId }).HasName("PK_user_roles");
 
             entity.ToTable("user_roles");
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
+            
             entity.Property(e => e.AssignedAt)
-                .HasDefaultValueSql("(getdate())")
+                .HasDefaultValueSql("now()") // Adaptado a PostgreSQL
                 .HasColumnName("assigned_at");
 
             entity.HasOne(d => d.Role).WithMany(p => p.UserRoles)
                 .HasForeignKey(d => d.RoleId)
-                .HasConstraintName("FK__user_role__role___412EB0B6");
+                .HasConstraintName("FK_user_roles_roles");
 
             entity.HasOne(d => d.User).WithMany(p => p.UserRoles)
                 .HasForeignKey(d => d.UserId)
-                .HasConstraintName("FK__user_role__user___403A8C7D");
+                .HasConstraintName("FK_user_roles_users");
         });
 
         OnModelCreatingPartial(modelBuilder);
